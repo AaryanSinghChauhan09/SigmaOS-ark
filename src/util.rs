@@ -1,59 +1,56 @@
-//! ark model — ARK: Survival Evolved dedicated server.
+//! ark model — KDE archive manager.
 
 #[derive(Debug, Clone)]
-pub struct Player {
-    pub name: String,
-    pub steam_id: String,
-    pub tribe: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct Tribe {
-    pub name: String,
-    pub owner: String,
-    pub members: Vec<String>,
+pub struct Archive {
+    pub path: String,
+    pub format: String,
+    pub size: u64,
+    pub entries: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Model {
-    pub map: String,
-    pub players: Vec<Player>,
-    pub tribes: Vec<Tribe>,
-    pub running: bool,
+    pub archives: Vec<Archive>,
+    pub next_id: u64,
 }
 
 impl Default for Model {
-    fn default() -> Self { Self { map: "TheIsland".into(), players: vec![], tribes: vec![], running: false } }
+    fn default() -> Self { Self { archives: vec![], next_id: 1 } }
 }
 
 impl Model {
     pub fn new() -> Self { Self::default() }
 
-    pub fn start(&mut self) -> bool {
-        if !self.running { self.running = true; true } else { false }
+    pub fn open(&mut self, path: &str, format: &str) -> bool {
+        if std::path::Path::new(path).exists() {
+            self.archives.push(Archive { path: path.into(), format: format.into(), size: 0, entries: vec![] });
+            true
+        } else { false }
     }
 
-    pub fn join(&mut self, player: Player) -> bool {
-        if self.running { self.players.push(player); true } else { false }
-    }
-
-    pub fn create_tribe(&mut self, name: &str, owner: &str) -> bool {
-        self.tribes.push(Tribe { name: name.into(), owner: owner.into(), members: vec![owner.into()] });
+    pub fn create(&mut self, path: &str, format: &str, files: &[String]) -> bool {
+        self.archives.push(Archive { path: path.into(), format: format.into(), size: 0, entries: files.to_vec() });
         true
     }
 
-    pub fn list_players(&self) -> &[Player] { &self.players }
+    pub fn extract(&mut self, path: &str, dest: &str) -> bool {
+        if let Some(a) = self.archives.iter_mut().find(|a| a.path == path) {
+            a.entries.clear();
+            true
+        } else { false }
+    }
+
+    pub fn list(&self) -> &[Archive] { &self.archives }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn start_join_tribe() {
+    fn create_extract_list() {
         let mut a = Model::new();
-        assert!(a.start());
-        assert!(a.join(Player { name: "P1".into(), steam_id: "s1".into(), tribe: "T1".into() }));
-        assert!(a.create_tribe("T1", "P1"));
-        assert_eq!(a.list_players().len(), 1);
+        assert!(a.create("/tmp/test.tar.bz2", "tar.bz2", &["a.txt".into()]));
+        assert!(a.extract("/tmp/test.tar.bz2", "/tmp/extract"));
+        assert_eq!(a.list()[0].format, "tar.bz2");
     }
 }
